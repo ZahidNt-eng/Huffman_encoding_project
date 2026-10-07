@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Huffman Coding Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef2f6;--card:#fff;--ink:#14213d;--mute:#5b6b82;--line:#d5dde8;--acc:#0e7c86;--acc-ink:#fff;--b0:#2f6fdb;--b1:#e07a1f;--err:#c0392b;--leaf:#e3f4f5;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1724;--card:#17223a;--ink:#e8eef9;--mute:#9bacc6;--line:#2a3a58;--acc:#38b6c1;--acc-ink:#07202a;--b0:#6ea2ff;--b1:#ffa24d;--err:#ff7b6b;--leaf:#12343f}}
+:root[data-theme="dark"]{--bg:#0f1724;--card:#17223a;--ink:#e8eef9;--mute:#9bacc6;--line:#2a3a58;--acc:#38b6c1;--acc-ink:#07202a;--b0:#6ea2ff;--b1:#ffa24d;--err:#ff7b6b;--leaf:#12343f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 'IBM Plex Sans',system-ui,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:2rem;margin:0 0 4px;letter-spacing:-.02em}
+h2{font-size:1.15rem;margin:0 0 12px}
+.sub{color:var(--mute);margin:0 0 22px;max-width:62ch}
+.pipe{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}
+.pipe span{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:18px}
+textarea{width:100%;min-height:90px;font:15px/1.5 'IBM Plex Mono',monospace;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical}
+textarea:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;align-items:center}
+button{font:600 .95rem 'IBM Plex Sans',sans-serif;background:var(--acc);color:var(--acc-ink);border:0;border-radius:8px;padding:9px 18px;cursor:pointer}
+button.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.scroll{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}
+td.m,.mono{font-family:'IBM Plex Mono',monospace}
+.bits{font:15px/1.7 'IBM Plex Mono',monospace;word-break:break-all;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;max-height:200px;overflow:auto}
+ol.steps{margin:0;padding-left:22px;font-size:.92rem}
+ol.steps li{margin-bottom:4px}
+.err{color:var(--err);font-weight:600;margin-top:8px}
+.result{font:16px/1.5 'IBM Plex Mono',monospace;background:var(--leaf);border-radius:8px;padding:12px;white-space:pre-wrap;word-break:break-word;min-height:46px}
+svg text{font-family:'IBM Plex Mono',monospace}
+.hide{display:none}
+label.t{font-weight:600;display:block;margin:12px 0 6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Huffman Coding Studio</h1>
+<p class="sub">Type any text. The tool counts each character, builds a tree from the counts, gives every character its own binary code, and can turn the bits back into the original text. New text means a new tree and new codes.</p>
+<div class="pipe"><span>Original text</span><span>Frequency table</span><span>Huffman tree</span><span>Binary encoded text</span></div>
+
+<div class="card">
+<h2>1. Encode</h2>
+<textarea id="inp" placeholder="Type or paste your text here">hello huffman</textarea>
+<div class="row"><button id="enc">Encode text</button><button class="alt" id="clr">Clear</button></div>
+<div id="encErr" class="err"></div>
+</div>
+
+<div id="out" class="hide">
+<div class="card"><h2>2. Frequency table</h2><div class="scroll" id="freq"></div></div>
+<div class="card"><h2>3. Huffman tree</h2>
+<p class="sub" style="margin-bottom:8px">Left edge = 0, right edge = 1. Round nodes are sums; boxes are characters. The root equals the total number of characters.</p>
+<div class="scroll" id="tree"></div></div>
+<div class="grid">
+<div class="card"><h2>Code table</h2><div class="scroll" id="codes"></div></div>
+<div class="card"><h2>4. Binary encoded text</h2>
+<div class="bits" id="bits"></div>
+<div class="row"><button class="alt" id="cpBits">Copy bits</button><button class="alt" id="cpTree">Copy tree info</button><button id="toDec">Send to decoder</button></div></div>
+</div>
+</div>
+
+<div class="card" id="decCard">
+<h2>5. Decode</h2>
+<label class="t" for="dBits">Binary encoded text</label>
+<textarea id="dBits" placeholder="e.g. 0110101..."></textarea>
+<label class="t" for="dTree">Tree information (character codes)</label>
+<textarea id="dTree" placeholder='e.g. {"h":"00","e":"01"}'></textarea>
+<div class="row"><button id="dec">Decode</button></div>
+<div id="decErr" class="err"></div>
+<label class="t">Original text</label>
+<div class="result" id="decOut"></div>
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const show=c=>c===' '?'␣':c==='\n'?'↵':c==='\t'?'⇥':c;
+const esc=s=>s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+let last=null;
+
+function huffman(text){
+  const chars=Array.from(text), freq=new Map();
+  for(const c of chars) freq.set(c,(freq.get(c)||0)+1);
+  let id=0;
+  let list=[...freq].map(([ch,f])=>({ch,f,id:id++}));
+  const steps=[];
+  const name=n=>n.ch!==undefined?`'${show(n.ch)}'(${n.f})`:`node(${n.f})`;
+  while(list.length>1){
+    list.sort((a,b)=>a.f-b.f||a.id-b.id);
+    const l=list.shift(), r=list.shift();
+    const p={f:l.f+r.f,left:l,right:r,id:id++};
+    steps.push(`Take ${name(l)} (left) and ${name(r)} (right) → new parent ${p.f}`);
+    list.push(p);
+  }
+  const root=list[0], codes={};
+  (function walk(n,code){
+    if(n.ch!==undefined){codes[n.ch]=code||'0';return}
+    walk(n.left,code+'0');walk(n.right,code+'1');
+  })(root,'');
+  const bits=chars.map(c=>codes[c]).join('');
+  return {chars,freq,steps,root,codes,bits};
+}
+
+function drawTree(root){
+  const GX=62,GY=78,P=36;let x=0,maxD=0;const nodes=[],edges=[];
+  (function lay(n,d){
+    n.d=d;maxD=Math.max(maxD,d);nodes.push(n);
+    if(n.ch!==undefined){n.x=x++;return}
+    lay(n.left,d+1);lay(n.right,d+1);
+    n.x=(n.left.x+n.right.x)/2;
+    edges.push([n,n.left,'0'],[n,n.right,'1']);
+  })(root,0);
+  const W=Math.max(x-1,0)*GX+P*2,H=maxD*GY+P*2;
+  const px=n=>P+n.x*GX,py=n=>P+n.d*GY;
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Huffman tree">`;
+  for(const [a,b,t] of edges){
+    const x1=px(a),y1=py(a),x2=px(b),y2=py(b);
+    s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--line)" stroke-width="2"/>`;
+    s+=`<text x="${(x1+x2)/2+(t==='0'?-10:10)}" y="${(y1+y2)/2}" text-anchor="middle" font-size="13" font-weight="600" fill="var(${t==='0'?'--b0':'--b1'})">${t}</text>`;
+  }
+  for(const n of nodes){
+    const cx=px(n),cy=py(n);
+    if(n.ch!==undefined){
+      s+=`<rect x="${cx-22}" y="${cy-20}" width="44" height="40" rx="6" fill="var(--leaf)" stroke="var(--acc)" stroke-width="1.5"/>`;
+      s+=`<text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">${esc(show(n.ch))}</text>`;
+      s+=`<text x="${cx}" y="${cy+13}" text-anchor="middle" font-size="11" fill="var(--mute)">${n.f}</text>`;
+    }else{
+      s+=`<circle cx="${cx}" cy="${cy}" r="19" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/>`;
+      s+=`<text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">${n.f}</text>`;
+    }
+  }
+  return s+'</svg>';
+}
+
+function encode(){
+  const text=$('inp').value;
+  $('encErr').textContent='';
+  if(!text){$('encErr').textContent='Enter some text first.';$('out').classList.add('hide');return}
+  const r=huffman(text);last=r;
+  const rows=[...r.freq].sort((a,b)=>b[1]-a[1]);
+  $('freq').innerHTML='<table><tr><th>Character</th><th>Frequency</th></tr>'+rows.map(([c,f])=>`<tr><td class="m">${esc(show(c))}</td><td>${f}</td></tr>`).join('')+`<tr><th>Total</th><th>${r.chars.length}</th></tr></table>`;
+  $('tree').innerHTML=drawTree(r.root);
+  const crow=Object.entries(r.codes).sort((a,b)=>a[1].length-b[1].length||a[1].localeCompare(b[1]));
+  $('codes').innerHTML='<table><tr><th>Character</th><th>Code</th></tr>'+crow.map(([c,k])=>`<tr><td class="m">${esc(show(c))}</td><td class="m">${k}</td></tr>`).join('')+'</table>';
+  $('bits').textContent=r.bits;
+  $('out').classList.remove('hide');
+}
+
+function rebuild(map){
+  const root={};
+  for(const [ch,code] of Object.entries(map)){
+    if(!/^[01]+$/.test(code)) throw new Error(`Invalid code for "${show(ch)}".`);
+    let n=root;
+    for(const b of code){n=n[b]=n[b]||{}}
+    n.ch=ch;
+  }
+  return root;
+}
+
+function decode(){
+  $('decErr').textContent='';$('decOut').textContent='';
+  try{
+    const bits=$('dBits').value.replace(/\s/g,'');
+    if(!/^[01]+$/.test(bits)) throw new Error('Encoded text must contain only 0 and 1.');
+    let map;
+    try{map=JSON.parse($('dTree').value)}catch(e){throw new Error('Tree information must be valid JSON, like {"a":"0","b":"1"}.')}
+    const root=rebuild(map);let n=root,out='';
+    for(const b of bits){
+      n=n[b];
+      if(!n) throw new Error('These bits do not match the tree information.');
+      if(n.ch!==undefined){out+=n.ch;n=root}
+    }
+    if(n!==root) throw new Error('The bits end in the middle of a character.');
+    $('decOut').textContent=out;
+  }catch(e){$('decErr').textContent=e.message}
+}
+
+const copy=t=>navigator.clipboard&&navigator.clipboard.writeText(t).catch(()=>{});
+$('enc').onclick=encode;
+$('clr').onclick=()=>{$('inp').value='';$('out').classList.add('hide');$('encErr').textContent=''};
+$('cpBits').onclick=()=>last&&copy(last.bits);
+$('cpTree').onclick=()=>last&&copy(JSON.stringify(last.codes));
+$('toDec').onclick=()=>{if(!last)return;$('dBits').value=last.bits;$('dTree').value=JSON.stringify(last.codes);decode();$('decCard').scrollIntoView({behavior:'smooth'})};
+$('dec').onclick=decode;
+encode();
+</script>
+</body>
+</html>
